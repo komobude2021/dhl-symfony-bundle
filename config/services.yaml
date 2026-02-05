@@ -1,0 +1,12 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  Omobude\DhlBundle\Service\DhlApiClient:
+    arguments:
+      $apiKey: '%omobude_dhl.api_key%'
+      $apiSecret: '%omobude_dhl.api_secret%'
+      $accountNumber: '%omobude_dhl.account_number%'
+      $sandbox: '%omobude_dhl.sandbox%'
+      $apiUrl: '%omobude_dhl.api_url%'
