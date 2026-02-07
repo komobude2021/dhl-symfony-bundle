@@ -29,8 +29,8 @@ Modern Symfony 7+ bundle for DHL API integration. Create shipment labels, view a
 - [Installation](#installation)
 - [Getting DHL Credentials](#getting-dhl-credentials)
 - [Usage](#usage)
-    - [Creating a Shipment](#creating-a-shipment)
-    - [Downloading a Label](#downloading-a-label)
+  - [Creating a Shipment](#creating-a-shipment)
+  - [Downloading a Label](#downloading-a-label)
 - [Configuration Reference](#configuration-reference)
 - [Switching to Production](#switching-to-production)
 - [Troubleshooting](#troubleshooting)
@@ -45,7 +45,22 @@ Modern Symfony 7+ bundle for DHL API integration. Create shipment labels, view a
 composer require omobude/dhl-symfony-bundle
 ```
 
-### Step 2: Configure Environment Variables
+### Step 2: Register the Bundle (If Not Auto-Registered)
+
+If Symfony Flex doesn't automatically register the bundle, manually add it to `config/bundles.php`:
+```php
+<?php
+
+return [
+    // ... other bundles
+    Omobude\DhlBundle\OmobudeDhlBundle::class => ['all' => true],
+];
+```
+
+> **Note:** With Symfony Flex, this step is usually automatic. Only add this manually if you encounter the error: "There is no extension able to load the configuration for 'omobude_dhl'".
+
+
+### Step 3: Configure Environment Variables
 
 Add your DHL credentials to your `.env` file:
 
@@ -57,7 +72,7 @@ DHL_CLIENT_SANDBOX=true
 ###< omobude/dhl-symfony-bundle ###
 ```
 
-### Step 3: Create Bundle Configuration
+### Step 4: Create Bundle Configuration
 
 Create the file `config/packages/omobude_dhl.yaml`:
 
@@ -68,7 +83,7 @@ omobude_dhl:
     sandbox: '%env(bool:DHL_CLIENT_SANDBOX)%'
 ```
 
-### Step 4: Clear Cache
+### Step 5: Clear Cache
 
 ```bash
 php bin/console cache:clear
@@ -321,6 +336,18 @@ Always test with a single shipment first to ensure everything works correctly.
 
 ## Troubleshooting
 
+### Bundle Not Registered
+
+**Problem:** "There is no extension able to load the configuration for 'omobude_dhl'"
+
+**Solution:**
+1. Ensure the bundle is registered in `config/bundles.php`:
+```php
+   Omobude\DhlBundle\OmobudeDhlBundle::class => ['all' => true],
+```
+2. Clear the cache: `php bin/console cache:clear`
+3. Verify installation: `composer show omobude/dhl-symfony-bundle`
+
 ### Authentication Errors
 
 **Problem:** "Authentication failed" or "Invalid credentials"
@@ -368,13 +395,13 @@ Enable detailed logging:
 ```yaml
 # config/packages/monolog.yaml
 monolog:
-    channels: ['dhl']
-    handlers:
-        dhl:
-            type: stream
-            path: '%kernel.logs_dir%/dhl.log'
-            level: debug
-            channels: ['dhl']
+  channels: ['dhl']
+  handlers:
+    dhl:
+      type: stream
+      path: '%kernel.logs_dir%/dhl.log'
+      level: debug
+      channels: ['dhl']
 ```
 
 Check logs:
