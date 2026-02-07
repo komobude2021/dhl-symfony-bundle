@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 namespace Omobude\DhlBundle\DependencyInjection;
 
@@ -13,24 +14,18 @@ class Configuration implements ConfigurationInterface
 
         $treeBuilder->getRootNode()
             ->children()
-            ->scalarNode('api_key')
-            ->isRequired()
-            ->cannotBeEmpty()
-            ->end()
-            ->scalarNode('api_secret')
-            ->isRequired()
-            ->cannotBeEmpty()
-            ->end()
-            ->scalarNode('account_number')
-            ->isRequired()
-            ->cannotBeEmpty()
-            ->end()
-            ->booleanNode('sandbox')
-            ->defaultTrue()
-            ->end()
-            ->scalarNode('api_url')
-            ->defaultValue('https://api-sandbox.dhl.com')
-            ->end()
+                ->scalarNode('client_id')
+                    ->defaultValue('')
+                    ->info('DHL API Client ID for OAuth authentication')
+                ->end()
+                ->scalarNode('client_secret')
+                    ->defaultValue('')
+                    ->info('DHL API Client Secret for OAuth authentication')
+                ->end()
+                ->booleanNode('sandbox')
+                    ->defaultTrue()
+                    ->info('Use DHL sandbox environment for testing')
+                ->end()
             ->end();
 
         return $treeBuilder;

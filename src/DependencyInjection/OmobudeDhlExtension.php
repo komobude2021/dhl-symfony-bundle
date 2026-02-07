@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 namespace Omobude\DhlBundle\DependencyInjection;
 
@@ -15,11 +16,9 @@ class OmobudeDhlExtension extends Extension
         $config = $this->processConfiguration($configuration, $configs);
 
         // Make config available to services
-        $container->setParameter('omobude_dhl.api_key', $config['api_key']);
-        $container->setParameter('omobude_dhl.api_secret', $config['api_secret']);
-        $container->setParameter('omobude_dhl.account_number', $config['account_number']);
+        $container->setParameter('omobude_dhl.client_id', $config['client_id']);
+        $container->setParameter('omobude_dhl.client_secret', $config['client_secret']);
         $container->setParameter('omobude_dhl.sandbox', $config['sandbox']);
-        $container->setParameter('omobude_dhl.api_url', $config['api_url']);
 
         $loader = new YamlFileLoader(
             $container,

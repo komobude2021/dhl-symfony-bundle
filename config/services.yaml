@@ -1,12 +1,31 @@
 services:
-  _defaults:
-    autowire: true
-    autoconfigure: true
+    _defaults:
+        autowire: true
+        autoconfigure: true
 
-  Omobude\DhlBundle\Service\DhlApiClient:
-    arguments:
-      $apiKey: '%omobude_dhl.api_key%'
-      $apiSecret: '%omobude_dhl.api_secret%'
-      $accountNumber: '%omobude_dhl.account_number%'
-      $sandbox: '%omobude_dhl.sandbox%'
-      $apiUrl: '%omobude_dhl.api_url%'
+    # Save Shipping Label Service
+    Omobude\DhlBundle\Service\SaveShippingLabel:
+        arguments:
+            $logger: '@?logger'
+        tags:
+            - { name: 'monolog.logger', channel: 'dhl' }
+
+    # Authentication Service
+    Omobude\DhlBundle\Service\AuthenticationService:
+        arguments:
+            $clientId: '%omobude_dhl.client_id%'
+            $clientSecret: '%omobude_dhl.client_secret%'
+            $sandbox: '%omobude_dhl.sandbox%'
+            $cache: '@cache.app'
+            $logger: '@?logger'
+        tags:
+            - { name: 'monolog.logger', channel: 'dhl' }
+
+    # DHL API Client
+    Omobude\DhlBundle\Service\DhlApiClient:
+        arguments:
+            $authService: '@Omobude\DhlBundle\Service\AuthenticationService'
+            $sandbox: '%omobude_dhl.sandbox%'
+            $logger: '@?logger'
+        tags:
+            - { name: 'monolog.logger', channel: 'dhl' }
