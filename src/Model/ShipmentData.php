@@ -14,7 +14,7 @@ class ShipmentData
     private PickupData $pickupData;
     private SenderAddress $senderAddress;
     private ShipmentDetails $shipmentDetails;
-    private ClearanceDeclaration $clearanceDeclaration;
+    private ?ClearanceDeclaration $clearanceDeclaration;
 
     public function __construct(
         string $pickupAccount,
@@ -89,7 +89,7 @@ class ShipmentData
         }
 
         return [
-            'pickupAccount' => $this->getPickupData(),
+            'pickupAccount' => $this->getPickupAccount(),
             'dropoffType'   => $this->getDropoffType(),
             'pickup'        => $this->getPickupData()->toArray(),
             'senderAddress' => $this->getSenderAddress()->toArray(),
