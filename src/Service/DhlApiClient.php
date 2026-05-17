@@ -10,6 +10,10 @@ use Omobude\DhlBundle\Exception\DhlDownloadLabelException;
 use Omobude\DhlBundle\Model\ShipmentData;
 use Omobude\DhlBundle\Model\Response\ShipmentResponse;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\DecodingExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\RedirectionExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\ServerExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Psr\Log\LoggerInterface;
@@ -38,7 +42,7 @@ class DhlApiClient
     public function createShipment(ShipmentData $shipmentData, string $format = 'PDF'): ShipmentResponse
     {
         try {
-            $this->logger?->info('Creating DHL shipment', [
+            $this->logger->info('Creating DHL shipment', [
                 'shipment_data' => $shipmentData->toArray(),
                 'format' => $format,
             ]);
@@ -54,21 +58,21 @@ class DhlApiClient
 
             $data = $response->toArray();
 
-            $this->logger?->info('DHL shipment created successfully', [
+            $this->logger->info('DHL shipment created successfully', [
                 'shipment_id' => $data['shipmentId'] ?? 'unknown',
             ]);
 
             return ShipmentResponse::fromArray($data);
 
         } catch (TransportExceptionInterface $ex) {
-            $this->logger?->error('DHL API transport error', [
+            $this->logger->error('DHL API transport error', [
                 'error' => $ex->getMessage(),
             ]);
             throw new DhlApiException(sprintf('Transport error: %s', $ex->getMessage()), $ex->getCode(), $ex);
         } catch (DhlAuthenticationException $ex) {
             throw $ex;
-        } catch (\Exception $ex) {
-            $this->logger?->error('DHL API error', [
+        } catch (\Exception|\Throwable $ex) {
+            $this->logger->error('DHL API error', [
                 'error' => $ex->getMessage(),
             ]);
             throw new DhlApiException(sprintf('Failed to create shipment: %s', $ex->getMessage()), $ex->getCode(), $ex);

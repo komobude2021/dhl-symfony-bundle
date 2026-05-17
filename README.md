@@ -15,6 +15,7 @@ Modern Symfony 7+ bundle for DHL API integration. Create shipment labels, view a
 - 🧪 **Sandbox mode** for testing
 - 📝 **Comprehensive logging** support
 - 🎯 **Type-safe models** with PHP 8.2+
+- 🇬🇧 **Northern Ireland clearance declaration** support (Windsor Framework / UKIMS)
 - 🔄 **Modern Symfony 7 integration**
 
 ## Requirements
@@ -30,6 +31,7 @@ Modern Symfony 7+ bundle for DHL API integration. Create shipment labels, view a
 - [Getting DHL Credentials](#getting-dhl-credentials)
 - [Usage](#usage)
   - [Creating a Shipment](#creating-a-shipment)
+  - [Northern Ireland Shipments (Clearance Declaration)](#northern-ireland-shipments-clearance-declaration)
   - [Downloading a Label](#downloading-a-label)
 - [Configuration Reference](#configuration-reference)
 - [Switching to Production](#switching-to-production)
@@ -207,6 +209,183 @@ class ShippingController extends AbstractController
 }
 ```
 
+### Northern Ireland Shipments (Clearance Declaration)
+
+Shipments delivered to **Northern Ireland** (postcodes starting with `BT`) require an additional **clearance declaration** under the Windsor Framework / UK Internal Market Scheme (UKIMS). The bundle automatically detects Northern Ireland postcodes and will throw a `BadRequestHttpException` if a clearance declaration is missing.
+
+#### When is a Clearance Declaration Required?
+
+| Destination | Postcode Prefix | Clearance Declaration |
+|-------------|-----------------|-----------------------|
+| Great Britain (England, Scotland, Wales) | Most UK postcodes | ❌ Not required |
+| Northern Ireland | `BT` | ✅ **Required** |
+
+#### Building a Clearance Declaration
+
+A clearance declaration is composed of two model classes:
+
+- `ClearanceDeclaration` — top-level customs information for the shipment
+- `ClearanceItem` — line-item details for each product in the shipment
+
+```php
+<?php
+declare(strict_types=1);
+
+namespace App\Controller;
+
+use Omobude\DhlBundle\Exception\DhlApiException;
+use Omobude\DhlBundle\Exception\DhlAuthenticationException;
+use Omobude\DhlBundle\Model\ClearanceDeclaration;
+use Omobude\DhlBundle\Model\ClearanceItem;
+use Omobude\DhlBundle\Model\ConsigneeAddress;
+use Omobude\DhlBundle\Model\PickupData;
+use Omobude\DhlBundle\Model\SenderAddress;
+use Omobude\DhlBundle\Model\ShipmentData;
+use Omobude\DhlBundle\Model\ShipmentDetails;
+use Omobude\DhlBundle\Service\DhlApiClient;
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Symfony\Component\Routing\Annotation\Route;
+
+class ShippingController extends AbstractController
+{
+    #[Route('/create-ni-shipment', name: 'create_ni_shipment')]
+    public function createNorthernIrelandShipment(DhlApiClient $dhlClient): Response
+    {
+        try {
+            $pickupData = new PickupData(
+                date: new \DateTimeImmutable('now', new \DateTimeZone('Europe/London')),
+                accountAddress: true
+            );
+
+            $senderAddress = new SenderAddress(
+                companyName: 'XXXXXXXXXX LIMITED',
+                address1: 'UNIT 5C, XXXXXXX DRIVE',
+                city: 'SHEFFIELD',
+                postalCode: 'S9 1XX',
+                country: 'GB',
+                name: 'DISPATCH MANAGER',
+                phone: '07443822832',
+                email: 'customersupport@xxxxxxxxxx.com',
+                address2: 'XXXXXXXXXX HOUSE',
+                address3: 'SHEFFIELD'
+            );
+
+            // Northern Ireland consignee — postcode starts with "BT"
+            $consigneeAddress = new ConsigneeAddress(
+                name: 'JANE DOE',
+                address1: '45 BELFAST ROAD',
+                city: 'BELFAST',
+                postalCode: 'BT1 5GS',
+                country: 'GB',
+                phone: '07123456789',
+                email: 'customer@example.com',
+                recipientType: 'residential',
+                addressType: 'doorstep',
+                address2: 'FLAT 2'
+            );
+
+            $shipmentDetails = new ShipmentDetails(
+                customerRef1: 'NI-' . date('YmdHis'),
+                customerRef2: substr(md5(uniqid()), 0, 8),
+                orderedProduct: '1',
+                totalPieces: 2,
+                totalWeight: 3.2
+            );
+
+            // Build each line item being shipped
+            $items = [
+                new ClearanceItem(
+                    descriptionOfGoods: 'Cotton T-Shirt',
+                    unitQuantity: 1,
+                    commodityCode: '6109100010'
+                ),
+                new ClearanceItem(
+                    descriptionOfGoods: 'Wool Scarf',
+                    unitQuantity: 1,
+                    commodityCode: '6117100000'
+                ),
+            ];
+
+            // Build the clearance declaration
+            $clearanceDeclaration = new ClearanceDeclaration(
+                shipmentMovementType: 'B2C',     // B2C or B2B
+                totalValue: 49.99,                // Total goods value (excl. shipping)
+                numberOfItems: 2,                 // Total number of items
+                items: $items,
+                sendersEORINumber: 'GB123456789000',     // Replace with your actual EORI
+                sendersUKIMSNumber: 'XIUKIM12345678901234567890' // Replace with your actual UKIMS number
+            );
+
+            $shipmentData = new ShipmentData(
+                pickupAccount: 'XXXXXXX',
+                dropoffType: 'PICKUP',
+                consigneeAddress: $consigneeAddress,
+                pickupData: $pickupData,
+                senderAddress: $senderAddress,
+                shipmentDetails: $shipmentDetails,
+                clearanceDeclaration: $clearanceDeclaration, // <-- required for NI
+            );
+
+            $result = $dhlClient->createShipment($shipmentData);
+
+            return $this->json([
+                'success' => true,
+                'shipment_id' => $result->getShipmentId(),
+                'message' => 'Northern Ireland shipment created successfully',
+            ]);
+
+        } catch (BadRequestHttpException $ex) {
+            // Thrown when clearance declaration is missing for an NI postcode
+            return $this->json([
+                'success' => false,
+                'error' => 'Clearance declaration required',
+                'message' => $ex->getMessage(),
+            ], Response::HTTP_BAD_REQUEST);
+        } catch (DhlApiException | DhlAuthenticationException $ex) {
+            return $this->json([
+                'success' => false,
+                'error' => $ex->getMessage(),
+                'code' => $ex->getCode(),
+            ], $ex->getCode() ?: Response::HTTP_BAD_REQUEST);
+        }
+    }
+}
+```
+
+#### `ClearanceDeclaration` Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `shipmentMovementType` | string | Yes | Movement type — `B2C` (business to consumer) or `B2B` (business to business) |
+| `totalValue` | float | Yes | Total declared value of goods (excluding shipping costs) |
+| `numberOfItems` | int | Yes | Total number of items across all line items |
+| `items` | `ClearanceItem[]` | Yes | Array of `ClearanceItem` objects, one per line item |
+| `sendersEORINumber` | string | No | Sender's EORI (Economic Operators Registration and Identification) number |
+| `sendersUKIMSNumber` | string | No | Sender's UKIMS (UK Internal Market Scheme) authorisation number |
+
+> **Note on EORI / UKIMS:** Although marked optional in the model, most B2C movements into Northern Ireland under the Windsor Framework will require a valid UKIMS number to qualify for the green-lane "not at risk" treatment. Check your DHL contract and current HMRC guidance before omitting these fields.
+
+#### `ClearanceItem` Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `descriptionOfGoods` | string | Yes | Plain-English description of the goods (e.g. `"Cotton T-Shirt"`) |
+| `unitQuantity` | int | Yes | Quantity of this item being shipped |
+| `commodityCode` | string | No | HS / commodity tariff code (e.g. `"6109100010"`). Strongly recommended for customs clearance |
+
+#### Validation Behaviour
+
+The bundle enforces clearance declaration rules at the point of calling `toArray()` on `ShipmentData` (which happens automatically inside `DhlApiClient::createShipment()`):
+
+- ✅ **NI postcode + clearance declaration present** → shipment proceeds
+- ❌ **NI postcode + no clearance declaration** → throws `BadRequestHttpException`
+- ✅ **GB postcode + no clearance declaration** → shipment proceeds
+- ✅ **GB postcode + clearance declaration present** → shipment proceeds (declaration is included)
+
+Always catch `BadRequestHttpException` separately if you want to surface clear validation errors to your users before the request hits the DHL API.
+
 ### Downloading a Label
 
 ```php
@@ -310,6 +489,12 @@ Valid values for `addressType`:
 - `doorstep` - Standard delivery
 - `neighbour` - Deliver to neighbour if recipient not available
 
+### Shipment Movement Types
+
+Valid values for `ClearanceDeclaration::$shipmentMovementType`:
+- `B2C` - Business to consumer
+- `B2B` - Business to business
+
 ## Switching to Production
 
 ### Step 1: Update Environment Variables
@@ -367,6 +552,16 @@ Always test with a single shipment first to ensure everything works correctly.
 2. Verify the configuration syntax is correct
 3. Check that environment variables are defined in `.env`
 4. Run `php bin/console debug:config omobude_dhl` to verify
+
+### Northern Ireland Clearance Errors
+
+**Problem:** `BadRequestHttpException: Clearance declaration is required for Northern Ireland deliveries (postcode: BT1 5GS).`
+
+**Solution:**
+- The destination postcode starts with `BT` (Northern Ireland), so a `ClearanceDeclaration` must be passed to `ShipmentData`
+- See the [Northern Ireland Shipments](#northern-ireland-shipments-clearance-declaration) section for a full example
+- Make sure your `ClearanceDeclaration` includes a valid `shipmentMovementType`, `totalValue`, `numberOfItems`, and at least one `ClearanceItem`
+- For most B2C movements, also include a valid UKIMS number via `sendersUKIMSNumber`
 
 ### Token Caching Issues
 

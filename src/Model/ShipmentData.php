@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 namespace Omobude\DhlBundle\Model;
 
+use Omobude\DhlBundle\Util\PostcodeHelper;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+
 class ShipmentData
 {
     private string $pickupAccount;
@@ -11,6 +14,7 @@ class ShipmentData
     private PickupData $pickupData;
     private SenderAddress $senderAddress;
     private ShipmentDetails $shipmentDetails;
+    private ClearanceDeclaration $clearanceDeclaration;
 
     public function __construct(
         string $pickupAccount,
@@ -19,6 +23,7 @@ class ShipmentData
         PickupData $pickupData,
         SenderAddress $senderAddress,
         ShipmentDetails $shipmentDetails,
+        ?ClearanceDeclaration $clearanceDeclaration = null,
     ) {
         $this->pickupAccount = $pickupAccount;
         $this->dropoffType = $dropoffType;
@@ -26,6 +31,7 @@ class ShipmentData
         $this->pickupData = $pickupData;
         $this->senderAddress = $senderAddress;
         $this->shipmentDetails = $shipmentDetails;
+        $this->clearanceDeclaration = $clearanceDeclaration;
     }
 
     public function getPickupAccount(): string
@@ -58,19 +64,36 @@ class ShipmentData
         return $this->shipmentDetails;
     }
 
-    public function toArray()
+    public function getClearanceDeclaration(): ?ClearanceDeclaration
     {
+        return $this->clearanceDeclaration;
+    }
+
+    public function toArray(): array
+    {
+        $deliveryPostCode = $this->getConsigneeAddress()->getPostalCode();
+        $postCodeHelper = new PostcodeHelper($deliveryPostCode);
+
+        $isNorthernIreland = $postCodeHelper->isNorthernIreland();
+        if ($isNorthernIreland && $this->getClearanceDeclaration() === null) {
+            throw new BadRequestHttpException(sprintf('Clearance declaration is required for Northern Ireland deliveries (postcode: %s).', $deliveryPostCode));
+        }
+
+        $shipment = [
+            'consigneeAddress' => $this->getConsigneeAddress()->toArray(),
+            'shipmentDetails'  => $this->getShipmentDetails()->toArray(),
+        ];
+
+        if ($this->getClearanceDeclaration() !== null) {
+            $shipment['clearanceDeclaration'] = $this->getClearanceDeclaration()->toArray();
+        }
+
         return [
-            "pickupAccount" => $this->getPickupAccount(),
-            "dropoffType" => $this->getDropoffType(),
-            "pickup" => $this->getPickupData()->toArray(),
-            "senderAddress" => $this->getSenderAddress()->toArray(),
-            "shipments" => [
-                [
-                    "consigneeAddress" => $this->getConsigneeAddress()->toArray(),
-                    "shipmentDetails" => $this->getShipmentDetails()->toArray(),
-                ],
-            ],
+            'pickupAccount' => $this->getPickupData(),
+            'dropoffType'   => $this->getDropoffType(),
+            'pickup'        => $this->getPickupData()->toArray(),
+            'senderAddress' => $this->getSenderAddress()->toArray(),
+            'shipments'     => [$shipment],
         ];
     }
 }
