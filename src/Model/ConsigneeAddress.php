@@ -9,6 +9,7 @@ class ConsigneeAddress
     private string $addressType;
     private string $address1;
     private ?string $address2;
+    private ?string $address3;
     private string $city;
     private string $postalCode;
     private string $country;
@@ -26,12 +27,14 @@ class ConsigneeAddress
         string $email,
         string $recipientType,
         string $addressType,
-        ?string $address2 = null
+        ?string $address2 = null,
+        ?string $address3 = null,
     ) {
         $this->recipientType = $recipientType;
         $this->addressType = $addressType;
         $this->address1 = $address1;
         $this->address2 = $address2;
+        $this->address3 = $address3;
         $this->city = $city;
         $this->postalCode = $postalCode;
         $this->country = $country;
@@ -58,6 +61,11 @@ class ConsigneeAddress
     public function getAddress2(): ?string
     {
         return $this->address2;
+    }
+
+    public function getAddress3(): ?string
+    {
+        return $this->address3;
     }
 
     public function getCity(): string
@@ -166,6 +174,10 @@ class ConsigneeAddress
 
         if ($this->getAddress2() !== null) {
             $data['address2'] = $this->getAddress2();
+        }
+
+        if ($this->getAddress3() !== null) {
+            $data['address3'] = $this->getAddress3();
         }
 
         return $data;

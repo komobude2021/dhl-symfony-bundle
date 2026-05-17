@@ -7,7 +7,8 @@ class ClearanceItem
 {
     public function __construct(
         private readonly string $descriptionOfGoods,
-        private readonly int $unitQuantity,
+        private readonly string $unitQuantity,
+        private readonly string $unitValue,
         private readonly ?string $commodityCode = null,
     ) {}
 
@@ -16,9 +17,14 @@ class ClearanceItem
         return $this->descriptionOfGoods;
     }
 
-    public function getUnitQuantity(): int
+    public function getUnitQuantity(): string
     {
         return $this->unitQuantity;
+    }
+
+    public function getUnitValue(): string
+    {
+        return $this->unitValue;
     }
 
     public function getCommodityCode(): ?string
@@ -29,9 +35,10 @@ class ClearanceItem
     public function toArray(): array
     {
         return [
-            'descriptionOfGoods' => $this->descriptionOfGoods,
-            'unitQuantity' => $this->unitQuantity,
-            'commodityCode' => $this->commodityCode ?? '',
+            'descriptionOfGoods' => $this->getDescriptionOfGoods(),
+            'unitQuantity' => $this->getUnitQuantity(),
+            'unitValue' => $this->getUnitValue(),
+            'commodityCode' => $this->getCommodityCode() ?? '',
         ];
     }
 }
